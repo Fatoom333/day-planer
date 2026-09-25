@@ -26,6 +26,8 @@
 
 - `src/plan.js` — ядро, чистые функции: `orderTasks`, `moveTask`, `computeFactors`, `forecast`, `planDay`, `planDays`. Время — минуты от полуночи.
 - `test/plan.test.js` — тесты ядра.
+- `src/schema.js` — схема данных и проверка импорта/ввода (`clean*`, `parseBackup`); `test/schema.test.js`.
+- `src/store.js` — IndexedDB: tasks, history, days, meta, events (кэш пар, не экспортируется).
 - Дальше по плану: `index.html`, `src/app.js` (UI), `src/store.js` (IndexedDB), `src/calendar.js` (GIS), `manifest.webmanifest`, `sw.js`, иконки.
 
 ## Команды
