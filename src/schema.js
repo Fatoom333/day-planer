@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   defaultWake: 8 * 60,
   sleepAt: 23 * 60,
   bufferMin: 10,
+  gapMin: 10,
   calendarIds: Object.freeze(['primary']),
 });
 
@@ -118,6 +119,8 @@ export function cleanSettings(s, path = 'settings') {
     defaultWake: int(s.defaultWake, `${path}.defaultWake`, 0, 1439),
     sleepAt: int(s.sleepAt, `${path}.sleepAt`, 0, 1439),
     bufferMin: int(s.bufferMin, `${path}.bufferMin`, 0, LIMITS.bufferMin),
+    // Поле появилось позже: в старых настройках и бэкапах его нет — берём значение по умолчанию.
+    gapMin: s.gapMin === undefined ? DEFAULT_SETTINGS.gapMin : int(s.gapMin, `${path}.gapMin`, 0, LIMITS.bufferMin),
     calendarIds: ids,
   };
 }

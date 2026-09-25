@@ -4,7 +4,7 @@ import { dayKey, minutesOf, addDays, endOfWeek, sleepMin, sleepValid, fmt, parse
 import { planToday, planWeek } from '../src/schedule.js';
 
 const at = (y, mo, d, h, mi = 0) => new Date(y, mo - 1, d, h, mi);
-const settings = { defaultWake: 8 * 60, sleepAt: 23 * 60, bufferMin: 10, calendarIds: [] };
+const settings = { defaultWake: 8 * 60, sleepAt: 23 * 60, bufferMin: 10, gapMin: 0, calendarIds: [] };
 let seq = 0;
 const task = (o) => ({ id: `t${++seq}`, title: 'x', estimateMin: 60, priority: 2, category: '', status: 'todo', createdAt: seq, ...o });
 const titles = (r) => r.slots.filter((s) => s.kind === 'task').map((s) => s.task.title);
@@ -85,4 +85,9 @@ test('неделя переносит не влезшее на следующи�
   const tasks = [task({ title: 'a', estimateMin: 120 }), task({ title: 'b', estimateMin: 120 }), task({ title: 'c', estimateMin: 120, priority: 1, notBefore: '2026-09-26' })];
   const w = planWeek({ now: at(2026, 9, 25, 8), settings: s, day: null, tasks, history: [] });
   assert.deepEqual(w.days.slice(0, 4).map(titles), [['a'], ['c'], ['b'], []]);
+});
+
+test('между задачами пауза из gapMin, отдельно от буфера пар', () => {
+  const r = planToday({ now: at(2026, 9, 25, 7), settings: { ...settings, bufferMin: 30, gapMin: 15 }, day: null, tasks: [task({ title: 'a' }), task({ title: 'b' })], history: [] });
+  assert.deepEqual(r.slots.map((s) => s.start), [8 * 60, 9 * 60 + 15]);
 });

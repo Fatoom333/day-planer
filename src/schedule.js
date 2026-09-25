@@ -26,7 +26,7 @@ export function planToday({ now, settings, day, tasks, history, fixed = [] }) {
   const running = doing ? { task: doing, startedAt: minutesOf(doing.startedAt, date) } : null;
   const wake = sameDay && day.wakeAt != null ? day.wakeAt : settings.defaultWake;
   const r = planDay(
-    { wake, sleep: sleepMin(settings), now: nowMin, buffer: settings.bufferMin, fixed, running },
+    { wake, sleep: sleepMin(settings), now: nowMin, buffer: settings.bufferMin, gap: settings.gapMin, fixed, running },
     ordered,
     factors,
   );
@@ -48,7 +48,7 @@ export function planWeek({ now, settings, day, tasks, history, fixedByDate = {} 
     // Задачи с notBefore в прошлом уже попали в день 0; позже недели — не показываются.
     const queue = orderTasks([...carry, ...fresh]);
     const r = planDay(
-      { wake: settings.defaultWake, sleep: sleepMin(settings), buffer: settings.bufferMin, fixed: fixedByDate[date] ?? [] },
+      { wake: settings.defaultWake, sleep: sleepMin(settings), buffer: settings.bufferMin, gap: settings.gapMin, fixed: fixedByDate[date] ?? [] },
       queue,
       today.factors,
     );

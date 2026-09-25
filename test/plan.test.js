@@ -142,3 +142,25 @@ test('последний остаток короче 25 мин может зан
   const r = planDay({ wake: h(8), sleep: h(20), buffer: 0, fixed }, [t]);
   assert.deepEqual(taskSlots(r).map((s) => [s.start, s.end]), [[h(8), h(9, 20)], [h(10), h(10, 20)]]);
 });
+
+test('пауза gap между задачами; хвостовая пауза обрезается о буфер пары и сон', () => {
+  const a = task({ estimateMin: 60 }), b = task({ estimateMin: 60 }), c = task({ estimateMin: 30 });
+  const fixed = [{ start: h(11, 20), end: h(12), title: 'Пара' }];
+  const r = planDay({ wake: h(9), sleep: h(13), buffer: 10, gap: 10, fixed }, [a, b, c]);
+  const at = Object.fromEntries(taskSlots(r).map((s) => [s.task.id, [s.start, s.end]]));
+  assert.deepEqual(at[a.id], [h(9), h(10)]);
+  assert.deepEqual(at[b.id], [h(10, 10), h(11, 10)]); // впритык к буферу пары, без второй паузы
+  assert.deepEqual(at[c.id], [h(12, 10), h(12, 40)]);
+});
+
+test('gap после задачи в работе и между кусками разделённой', () => {
+  const cur = task({ estimateMin: 60 }), next = task({ estimateMin: 30 });
+  const r = planDay({ wake: h(8), sleep: h(22), now: h(9), gap: 15, running: { task: cur, startedAt: h(8, 30) } }, [cur, next]);
+  assert.equal(taskSlots(r).find((s) => s.task.id === next.id).start, h(9, 45));
+  const sp = task({ estimateMin: 60, splittable: true }), after = task({ estimateMin: 20 });
+  const fixed = [{ start: h(9), end: h(10), title: 'Пара' }];
+  const r2 = planDay({ wake: h(8), sleep: h(12), buffer: 0, gap: 10, fixed }, [sp, after]);
+  const parts = taskSlots(r2).filter((s) => s.task.id === sp.id).map((s) => [s.start, s.end]);
+  assert.deepEqual(parts, [[h(8), h(9)]]); // целиком влезла до пары, пауза съелась о пару
+  assert.equal(taskSlots(r2).find((s) => s.task.id === after.id).start, h(10));
+});

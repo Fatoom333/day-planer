@@ -63,7 +63,10 @@
           <label class="field"><span>Подъём</span><input name="defaultWake" type="time" required></label>
           <label class="field"><span>Сон</span><input name="sleepAt" type="time" required></label>
         </div>
-        <label class="field"><span>Буфер вокруг пар, минут</span><input name="bufferMin" type="number" inputmode="numeric" min="0" max="120" required></label>
+        <div class="row">
+          <label class="field"><span>Буфер вокруг пар, мин</span><input name="bufferMin" type="number" inputmode="numeric" min="0" max="120" required></label>
+          <label class="field"><span>Пауза между задачами, мин</span><input name="gapMin" type="number" inputmode="numeric" min="0" max="120" required></label>
+        </div>
         <p class="muted small">Сон раньше подъёма — это после полуночи, но не позже 04:00.</p>
         <p id="settings-msg" class="msg" role="status"></p>
         <button class="btn primary" type="submit">Сохранить</button>
