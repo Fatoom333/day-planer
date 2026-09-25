@@ -79,6 +79,9 @@ const remove = (t) => {
 
 const setEstimate = (t, n, msgEl) => act(() => store.saveTask({ ...t, estimateMin: n }), msgEl);
 
+// Сбросить ручной порядок: снова авто-ключ, включая задачи, добавленные после перестановки.
+const resetOrder = () => act(() => store.saveDay({ ...S.day, date: S.date, order: undefined }));
+
 function reorder(id, targetId) {
   const idx = S.plan.ordered.findIndex((t) => t.id === targetId);
   if (idx < 0 || id === targetId) return;
@@ -99,6 +102,12 @@ function renderToday() {
     wakeBox.replaceChildren(h('button', { class: 'btn big primary', type: 'button', onclick: wake }, 'Проснулся'));
   } else {
     wakeBox.replaceChildren(h('p', { class: 'wake muted' }, `Подъём в ${fmt(S.day.wakeAt)}`));
+  }
+
+  if (S.day.order) {
+    wakeBox.append(h('div', { class: 'sorted-note' },
+      h('span', { class: 'muted' }, 'Порядок изменён вручную'),
+      h('button', { class: 'btn', type: 'button', onclick: resetOrder }, 'Отсортировать')));
   }
 
   const running = doing();
@@ -303,6 +312,7 @@ function renderSettings() {
   f.elements.defaultWake.value = fmt(S.settings.defaultWake);
   f.elements.sleepAt.value = fmt(S.settings.sleepAt);
   f.elements.bufferMin.value = String(S.settings.bufferMin);
+  f.elements.gapMin.value = String(S.settings.gapMin);
 }
 
 function setupSettings() {
@@ -315,6 +325,7 @@ function setupSettings() {
       defaultWake: parseHM(f.elements.defaultWake.value),
       sleepAt: parseHM(f.elements.sleepAt.value),
       bufferMin: Number(f.elements.bufferMin.value),
+      gapMin: Number(f.elements.gapMin.value),
     };
     if (next.defaultWake == null || next.sleepAt == null) return setMsg(msg, 'Время в формате ЧЧ:ММ', true);
     if (!sleepValid(next)) return setMsg(msg, 'Сон после полуночи — не позже 04:00', true);

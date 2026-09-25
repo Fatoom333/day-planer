@@ -96,15 +96,17 @@ function freeGaps(start, end, busy) {
   return gaps;
 }
 
-function placeWhole(gaps, need) {
+// gap — пауза после задачи. Она не обязана влезать: интервал кончается там, где начинается
+// буфер пары или сон, поэтому хвостовая пауза просто обрезается, а не удваивается.
+function placeWhole(gaps, need, gap) {
   const i = gaps.findIndex(([s, e]) => e - s >= need);
   if (i === -1) return null;
   const [s, e] = gaps[i];
-  gaps[i] = [s + need, e];
+  gaps[i] = [Math.min(s + need + gap, e), e];
   return [[s, s + need]];
 }
 
-function placeSplit(gaps, need) {
+function placeSplit(gaps, need, gap) {
   const trial = gaps.map((g) => g.slice());
   const pieces = [];
   let left = need;
@@ -114,7 +116,7 @@ function placeSplit(gaps, need) {
     const take = Math.min(len, left);
     if (take < MIN_CHUNK && take < left) continue; // кусок короче 25 мин — только последний остаток
     pieces.push([g[0], g[0] + take]);
-    g[0] += take;
+    g[0] = Math.min(g[0] + take + gap, g[1]);
     left -= take;
   }
   if (left > 0) return null; // всё или ничего: частично уложенная задача путает
@@ -127,6 +129,7 @@ function placeSplit(gaps, need) {
  *   wake, sleep       — границы дня (минуты)
  *   now               — текущее время, или null для будущего дня
  *   buffer            — минуты вокруг пар
+ *   gap               — минуты паузы после каждой задачи (по умолчанию 0)
  *   fixed             — [{start, end, title}] пары из календаря
  *   running           — {task, startedAt} задача в работе, или null
  * @param {object[]} tasks — невыполненные задачи в порядке укладки (см. orderTasks)
@@ -134,7 +137,7 @@ function placeSplit(gaps, need) {
  * @returns {{slots: object[], overflow: object[]}}
  */
 export function planDay(day, tasks, factors = {}) {
-  const { wake, sleep, now = null, buffer = 10, fixed = [], running = null } = day;
+  const { wake, sleep, now = null, buffer = 10, gap = 0, fixed = [], running = null } = day;
   const start = now == null ? wake : Math.max(wake, now);
   const slots = [];
   const busy = [];
@@ -147,7 +150,7 @@ export function planDay(day, tasks, factors = {}) {
   if (running && now != null) {
     const end = Math.max(running.startedAt + forecast(running.task, factors), now + OVERRUN_GRACE);
     slots.push({ kind: 'task', running: true, start: running.startedAt, end, task: running.task });
-    busy.push([now, end]);
+    busy.push([now, end + gap]);
   }
 
   const gaps = freeGaps(start, sleep, busy);
@@ -156,7 +159,7 @@ export function planDay(day, tasks, factors = {}) {
   for (const task of tasks) {
     if (running && task.id === running.task.id) continue;
     const need = forecast(task, factors);
-    const pieces = task.splittable ? placeSplit(gaps, need) : placeWhole(gaps, need);
+    const pieces = task.splittable ? placeSplit(gaps, need, gap) : placeWhole(gaps, need, gap);
     if (!pieces) {
       overflow.push(task);
       continue;

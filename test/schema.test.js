@@ -77,6 +77,12 @@ test('дни и настройки проверяются', () => {
   bad(backup({ settings: { ...DEFAULT_SETTINGS, bufferMin: 500 } }), /bufferMin/);
   bad(backup({ settings: { ...DEFAULT_SETTINGS, sleepAt: 1440 } }), /sleepAt/);
   bad(backup({ settings: undefined }), /settings/);
+  bad(backup({ settings: { ...DEFAULT_SETTINGS, gapMin: -1 } }), /gapMin/);
+});
+
+test('старый бэкап без gapMin принимается со значением по умолчанию', () => {
+  const { gapMin, ...old } = DEFAULT_SETTINGS;
+  assert.equal(parseBackup(JSON.stringify(backup({ settings: old }))).settings.gapMin, 10);
 });
 
 test('массивы ограничены по длине', () => {
