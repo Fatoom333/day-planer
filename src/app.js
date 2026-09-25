@@ -2,10 +2,10 @@
 
 import { h, $ } from './dom.js';
 import * as store from './store.js';
-import { cleanTask, ValidationError, LIMITS } from './schema.js';
-import { moveTask, forecast } from './plan.js';
-import { planToday } from './schedule.js';
-import { dayKey, addDays, endOfWeek, fmt, fmtDur, fmtDate } from './time.js';
+import { cleanTask, ValidationError, LIMITS, MAX_IMPORT_BYTES } from './schema.js';
+import { moveTask, forecast, orderTasks } from './plan.js';
+import { planToday, planWeek } from './schedule.js';
+import { dayKey, addDays, endOfWeek, fmt, fmtDur, fmtDate, parseHM, sleepMin, sleepValid } from './time.js';
 
 const S = {
   settings: null,
@@ -13,6 +13,7 @@ const S = {
   history: [],
   day: null,     // DayState текущего логического дня
   fixed: [],     // пары сегодня из кэша
+  fixedByDate: {}, // пары на 7 дней из кэша
   date: null,
   plan: null,
   dragging: false,
@@ -22,10 +23,12 @@ const S = {
 
 async function reload() {
   S.date = dayKey(new Date());
-  const [settings, tasks, history, day, ev] = await Promise.all([
-    store.loadSettings(), store.getAll('tasks'), store.getAll('history'), store.getDay(S.date), store.getEvents(S.date),
+  const dates = Array.from({ length: 7 }, (_, i) => addDays(S.date, i));
+  const [settings, tasks, history, day, ...evs] = await Promise.all([
+    store.loadSettings(), store.getAll('tasks'), store.getAll('history'), store.getDay(S.date), ...dates.map(store.getEvents),
   ]);
-  Object.assign(S, { settings, tasks, history, day, fixed: ev?.events ?? [] });
+  const fixedByDate = Object.fromEntries(dates.map((d, i) => [d, evs[i]?.events ?? []]));
+  Object.assign(S, { settings, tasks, history, day, fixedByDate, fixed: fixedByDate[S.date] });
 }
 
 // Любое действие: записать, перечитать из базы, перерисовать. Ошибку показать, а не проглотить.
@@ -212,6 +215,146 @@ function attachDrag(card) {
   });
 }
 
+// ── Неделя ────────────────────────────────────────────────────────────────
+
+function renderWeek() {
+  const w = planWeek({ now: new Date(), settings: S.settings, day: S.day, tasks: S.tasks, history: S.history, fixedByDate: S.fixedByDate });
+  const sleep = sleepMin(S.settings);
+  const cards = w.days.map((d, i) => {
+    const from = i === 0 ? Math.max(d.wake, S.plan?.nowMin ?? planToday(ctx()).nowMin) : d.wake;
+    const fixedMin = d.slots.filter((s) => s.kind === 'fixed')
+      .reduce((m, s) => m + Math.max(0, Math.min(s.end, sleep) - Math.max(s.start, from)), 0);
+    const free = Math.max(0, sleep - from - fixedMin);
+    const busy = d.slots.filter((s) => s.kind === 'task').reduce((m, s) => m + (s.end - Math.max(s.start, from)), 0);
+    const fill = h('i');
+    fill.style.width = `${free ? Math.min(100, Math.round((busy / free) * 100)) : 100}%`; // CSSOM, не атрибут style
+    return h('section', { class: 'card day' },
+      h('h2', {}, i === 0 ? `Сегодня, ${fmtDate(d.date)}` : fmtDate(d.date), h('span', { class: 'muted' }, `${fmtDur(busy)} из ${fmtDur(free)}`)),
+      h('div', { class: `bar${busy >= free ? ' full' : ''}`, role: 'img', 'aria-label': `Загрузка ${fmtDur(busy)} из ${fmtDur(free)}` }, fill),
+      d.slots.length
+        ? h('ul', {}, d.slots.map((s) => h('li', { class: s.kind === 'fixed' ? 'fixed-li' : '' },
+          h('span', { class: 'time' }, fmt(s.start)),
+          h('span', {}, s.kind === 'fixed' ? s.title || 'Занято' : s.task.title, s.part ? ` (${s.part[0]}/${s.part[1]})` : ''))))
+        : h('p', { class: 'muted' }, 'Свободно'),
+    );
+  });
+  if (w.overflow.length) {
+    cards.push(h('section', { class: 'card overflow' }, h('h2', {}, `Не влезает в неделю: ${w.overflow.length}`),
+      h('ul', {}, w.overflow.map((t) => h('li', {}, `${t.title} · ${fmtDur(forecast(t, w.factors))}`)))));
+  }
+  if (w.later.length) {
+    cards.push(h('section', { class: 'card' }, h('h2', {}, 'Отложено дальше недели'),
+      h('ul', {}, w.later.map((t) => h('li', {}, `${t.title} · с ${fmtDate(t.notBefore)}`)))));
+  }
+  $('#week').replaceChildren(...cards);
+}
+
+// ── Задачи ────────────────────────────────────────────────────────────────
+
+function taskFields(t = {}) {
+  const pr = h('select', { name: 'priority' },
+    h('option', { value: '1' }, '1 — важно'), h('option', { value: '2' }, '2 — обычно'), h('option', { value: '3' }, '3 — можно потом'));
+  pr.value = String(t.priority ?? 2);
+  return [
+    h('label', { class: 'field' }, h('span', {}, 'Название'), h('input', { name: 'title', required: true, maxlength: LIMITS.title, value: t.title ?? '' })),
+    h('div', { class: 'row' },
+      h('label', { class: 'field' }, h('span', {}, 'Минут'), h('input', { name: 'estimateMin', type: 'number', inputmode: 'numeric', min: 1, max: LIMITS.estimateMin, required: true, value: t.estimateMin ?? 30 })),
+      h('label', { class: 'field' }, h('span', {}, 'Приоритет'), pr)),
+    h('label', { class: 'field' }, h('span', {}, 'Дедлайн'), h('input', { name: 'deadline', type: 'date', value: t.deadline ?? '' })),
+    h('label', { class: 'field' }, h('span', {}, 'Категория'), h('input', { name: 'category', maxlength: LIMITS.category, list: 'categories', value: t.category ?? '' })),
+    h('label', { class: 'check' }, h('input', { name: 'splittable', type: 'checkbox', checked: Boolean(t.splittable) }), 'Можно делить на куски от 25 минут'),
+  ];
+}
+
+function renderTasks() {
+  const sameDay = S.day?.date === S.date;
+  const list = orderTasks(S.tasks, sameDay ? S.day.order ?? null : null);
+  const factors = S.plan?.factors ?? {};
+  const rows = list.map((t) => {
+    const msg = h('p', { class: 'msg', role: 'status' });
+    const form = h('form', { autocomplete: 'off' }, ...taskFields(t));
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      let next;
+      try { next = readTaskForm(form, t); } catch (err) { setMsg(msg, `Проверь поля: ${err.message}`, true); return; }
+      act(() => store.saveTask(next), msg);
+    });
+    if (t.notBefore && t.notBefore > S.date) {
+      form.append(h('p', { class: 'muted' }, `Отложена до ${fmtDate(t.notBefore)}. `,
+        h('button', { class: 'btn', type: 'button', onclick: () => act(() => store.saveTask({ ...t, notBefore: undefined })) }, 'Вернуть в сегодня')));
+    }
+    form.append(msg, h('div', { class: 'btns' },
+      h('button', { class: 'btn primary', type: 'submit' }, 'Сохранить'),
+      h('button', { class: 'btn danger', type: 'button', onclick: () => remove(t) }, 'Удалить')));
+    const tags = [fmtDur(forecast(t, factors)), `P${t.priority}`];
+    if (t.status === 'doing') tags.unshift('в работе');
+    if (t.notBefore && t.notBefore > S.date) tags.unshift(`с ${fmtDate(t.notBefore)}`);
+    return h('details', { class: 'card task-row' },
+      h('summary', {}, h('span', { class: 'task-title' }, t.title), h('span', { class: 'muted' }, tags.join(' · '))),
+      form);
+  });
+  $('#tasks').replaceChildren(...(rows.length ? rows : [h('p', { class: 'empty' }, 'Задач нет. Добавь на экране «Сегодня».')]));
+}
+
+// ── Настройки ─────────────────────────────────────────────────────────────
+
+function renderSettings() {
+  const f = $('#settings-form');
+  f.elements.defaultWake.value = fmt(S.settings.defaultWake);
+  f.elements.sleepAt.value = fmt(S.settings.sleepAt);
+  f.elements.bufferMin.value = String(S.settings.bufferMin);
+}
+
+function setupSettings() {
+  const f = $('#settings-form');
+  f.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const msg = $('#settings-msg');
+    const next = {
+      ...S.settings,
+      defaultWake: parseHM(f.elements.defaultWake.value),
+      sleepAt: parseHM(f.elements.sleepAt.value),
+      bufferMin: Number(f.elements.bufferMin.value),
+    };
+    if (next.defaultWake == null || next.sleepAt == null) return setMsg(msg, 'Время в формате ЧЧ:ММ', true);
+    if (!sleepValid(next)) return setMsg(msg, 'Сон после полуночи — не позже 04:00', true);
+    act(async () => { await store.saveSettings(next); setMsg(msg, 'Сохранено'); });
+  });
+
+  $('#export').addEventListener('click', async () => {
+    const msg = $('#backup-msg');
+    try {
+      const blob = new Blob([await store.exportBackup()], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `day-planer-${S.date}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      setMsg(msg, 'Файл сохранён в загрузки');
+    } catch (err) {
+      console.error(err);
+      setMsg(msg, 'Не удалось сделать экспорт', true);
+    }
+  });
+
+  $('#import').addEventListener('change', async (e) => {
+    const input = e.target, file = input.files?.[0], msg = $('#backup-msg');
+    input.value = '';
+    if (!file) return;
+    if (file.size > MAX_IMPORT_BYTES) return setMsg(msg, 'Файл слишком большой', true);
+    if (!confirm('Импорт заменит все задачи, историю и настройки на этом телефоне. Продолжить?')) return;
+    try {
+      const r = await store.importBackup(await file.text());
+      setMsg(msg, `Загружено: задач ${r.tasks}, в истории ${r.history}`);
+    } catch (err) {
+      setMsg(msg, err instanceof ValidationError ? `Файл не принят, данные не тронуты. ${err.message}` : 'Не удалось импортировать, данные не тронуты', true);
+      if (!(err instanceof ValidationError)) console.error(err);
+    }
+    await reload();
+    render();
+  });
+}
+
 // ── быстрое добавление ────────────────────────────────────────────────────
 
 function readTaskForm(form, base) {
@@ -255,7 +398,7 @@ function renderCategories() {
 // ── маршрутизация и отрисовка ─────────────────────────────────────────────
 
 const TABS = ['today', 'week', 'tasks', 'settings'];
-const VIEWS = { today: renderToday };
+const VIEWS = { today: renderToday, week: renderWeek, tasks: renderTasks, settings: renderSettings };
 const tab = () => (TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'today');
 
 function render() {
@@ -267,7 +410,8 @@ function render() {
     else a.removeAttribute('aria-current');
   }
   renderCategories();
-  VIEWS[cur]?.();
+  if (cur !== 'today') S.plan = planToday(ctx()); // nowMin и поправка нужны и другим экранам
+  VIEWS[cur]();
 }
 
 // Раз в полминуты план пересчитывается от нового «сейчас». Не мешаем, пока человек
@@ -275,14 +419,16 @@ function render() {
 async function tick() {
   if (S.dragging) return;
   const active = document.activeElement;
-  if (active?.matches?.('input, select') && active.closest('#feed, #overflow, #tasks, #settings-form')) return;
+  if (active?.matches?.('input, select') && active.closest('#feed, #overflow')) return;
   if (dayKey(new Date()) !== S.date) await reload();
-  render();
+  // «Задачи» и «Настройки» — формы; их перерисовка по таймеру закрывала бы раскрытую правку.
+  if (tab() === 'today' || tab() === 'week') render();
 }
 
 async function init() {
   await reload();
   setupQuickAdd();
+  setupSettings();
   window.addEventListener('hashchange', render);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
   setInterval(tick, 30000);
