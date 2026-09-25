@@ -149,13 +149,13 @@ summary { min-height: var(--tap); display: flex; align-items: center; color: var
 
 /* ── неделя ── */
 .day h2 { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.day h2 .muted { font-weight: 400; font-size: 15px; }
+.day h2 .muted { font-weight: 400; font-size: 15px; white-space: nowrap; text-align: right; }
 .bar { height: 8px; border-radius: 4px; background: var(--fixed); overflow: hidden; margin-bottom: 8px; }
 .bar > i { display: block; height: 100%; background: var(--accent); width: 0; }
 .bar.full > i { background: var(--warn); }
 .day ul { list-style: none; margin: 0; padding: 0; }
 .day li { display: flex; gap: 10px; padding: 4px 0; overflow-wrap: anywhere; }
-.day li .time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; width: 46px; }
+.day li .time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; min-width: 3.2em; white-space: nowrap; }
 .day li.fixed-li { color: var(--fixed-ink); }
 
 /* ── задачи ── */
