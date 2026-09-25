@@ -1,0 +1,187 @@
+:root {
+  --bg: #f6f5f1;
+  --card: #ffffff;
+  --ink: #26282c;
+  --muted: #6d7078;
+  --line: #e3e1da;
+  --fixed: #ebeae5;
+  --fixed-ink: #5e6168;
+  --accent: #3f6e63;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2ece8;
+  --warn: #a2562a;
+  --warn-soft: #f6e8dd;
+  --danger: #a33a3a;
+  --radius: 14px;
+  --tap: 48px;
+  --tabs-h: 60px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1c1f;
+    --card: #25272b;
+    --ink: #e7e6e2;
+    --muted: #9a9ca3;
+    --line: #34363b;
+    --fixed: #2d2f33;
+    --fixed-ink: #a8aab0;
+    --accent: #7fb3a5;
+    --accent-ink: #13201c;
+    --accent-soft: #263631;
+    --warn: #e0a27a;
+    --warn-soft: #3a2c22;
+    --danger: #e38b8b;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px)
+           calc(env(safe-area-inset-right, 0px) + 16px)
+           calc(var(--tabs-h) + var(--safe-b) + 24px)
+           calc(env(safe-area-inset-left, 0px) + 16px);
+}
+
+h1 { font-size: 26px; margin: 8px 0 0; font-weight: 650; }
+h2 { font-size: 17px; margin: 0 0 12px; font-weight: 600; }
+.top { margin-bottom: 14px; }
+.muted { color: var(--muted); margin: 2px 0 0; }
+.small { font-size: 14px; }
+.msg { min-height: 1.4em; margin: 8px 0; font-size: 15px; }
+.msg.err { color: var(--danger); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin: 0 0 12px;
+}
+
+/* ── кнопки ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--tap); min-width: var(--tap);
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit; font-weight: 550;
+  cursor: pointer;
+  user-select: none; -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.45; cursor: default; transform: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.big { min-height: 56px; font-size: 18px; width: 100%; }
+.btn.danger { color: var(--danger); }
+.btn.file { position: relative; overflow: hidden; }
+.btn.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 16px; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.btns .btn { flex: 1 1 0; padding: 0 8px; font-size: 15px; }
+
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* ── поля ── */
+.field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; flex: 1 1 0; min-width: 0; }
+.field span { font-size: 14px; color: var(--muted); }
+input, select {
+  font: inherit; font-size: 16px; /* меньше 16px — и Chrome зумит страницу при фокусе */
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  width: 100%;
+}
+.row { display: flex; gap: 10px; }
+.check { display: flex; align-items: center; gap: 10px; min-height: var(--tap); margin-bottom: 8px; }
+.check input { width: 22px; height: 22px; min-height: 0; }
+details { margin: 0 0 12px; }
+summary { min-height: var(--tap); display: flex; align-items: center; color: var(--accent); cursor: pointer; }
+
+/* ── лента ── */
+.feed { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.fixed-slot { background: var(--fixed); color: var(--fixed-ink); border-radius: 12px; padding: 10px 14px; }
+.task-card { margin: 0; }
+.task-card.next { border-color: var(--accent); }
+.task-card.running { border-color: var(--accent); background: var(--accent-soft); }
+.task-card.dragging { opacity: 0.9; box-shadow: 0 10px 30px rgb(0 0 0 / 0.18); position: relative; z-index: 5; }
+.task-card.drop-target { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.task-head { display: flex; gap: 8px; align-items: flex-start; }
+.task-title { font-weight: 600; flex: 1; overflow-wrap: anywhere; padding-top: 2px; }
+.task-meta { color: var(--muted); font-size: 14px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.grip {
+  flex: none; width: var(--tap); height: var(--tap); margin: -10px -10px 0 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 20px; cursor: grab;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  background: none; border: 0;
+}
+.empty { color: var(--muted); text-align: center; padding: 24px 8px; }
+.wake { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.wake .muted { margin: 0; }
+
+.overflow { background: var(--warn-soft); border-color: transparent; }
+.overflow h2 { color: var(--warn); }
+.overflow-item { padding: 10px 0; border-top: 1px solid var(--line); }
+.overflow-item:first-of-type { border-top: 0; padding-top: 0; }
+
+/* ── неделя ── */
+.day h2 { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.day h2 .muted { font-weight: 400; font-size: 15px; }
+.bar { height: 8px; border-radius: 4px; background: var(--fixed); overflow: hidden; margin-bottom: 8px; }
+.bar > i { display: block; height: 100%; background: var(--accent); width: 0; }
+.bar.full > i { background: var(--warn); }
+.day ul { list-style: none; margin: 0; padding: 0; }
+.day li { display: flex; gap: 10px; padding: 4px 0; overflow-wrap: anywhere; }
+.day li .time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; width: 46px; }
+.day li.fixed-li { color: var(--fixed-ink); }
+
+/* ── задачи ── */
+.task-row summary { justify-content: space-between; gap: 8px; color: var(--ink); }
+.task-row summary .muted { flex: none; font-size: 14px; }
+
+/* ── вкладки ── */
+.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  display: flex;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  padding: 0 env(safe-area-inset-right, 0px) var(--safe-b) env(safe-area-inset-left, 0px);
+}
+.tabs a {
+  flex: 1; min-height: var(--tabs-h);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); text-decoration: none; font-size: 15px; font-weight: 550;
+  touch-action: manipulation;
+}
+.tabs a[aria-current="page"] { color: var(--accent); box-shadow: inset 0 3px 0 var(--accent); }
+
+@media (hover: hover) {
+  .btn:hover:not(:disabled) { border-color: var(--accent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active { transform: none; }
+}
