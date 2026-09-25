@@ -28,7 +28,12 @@
 - `test/plan.test.js` — тесты ядра.
 - `src/schema.js` — схема данных и проверка импорта/ввода (`clean*`, `parseBackup`); `test/schema.test.js`.
 - `src/store.js` — IndexedDB: tasks, history, days, meta, events (кэш пар, не экспортируется).
-- Дальше по плану: `index.html`, `src/app.js` (UI), `src/store.js` (IndexedDB), `src/calendar.js` (GIS), `manifest.webmanifest`, `sw.js`, иконки.
+- `src/time.js` — логический день (граница 04:00), минуты по настенным часам, форматирование.
+- `src/schedule.js` — `planToday`/`planWeek`: переводит сохранённые данные в вызовы ядра, учитывает `notBefore`; `test/schedule.test.js`.
+- `src/dom.js` — `h()`, единственный способ строить DOM. `src/app.js` — UI четырёх экранов.
+- `index.html`, `style.css`, `manifest.webmanifest`, `icons/`, `sw.js` (cache-first, **при изменении файлов поднимать `VERSION`**; `test/sw.test.js` проверяет, что все файлы в `FILES`).
+- `docs/deploy.md` — выкладка на Pages и установка на телефон.
+- Дальше по плану: `src/calendar.js` (GIS), `src/config.js`, `docs/google-setup.md`.
 
 ## Команды
 
