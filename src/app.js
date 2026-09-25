@@ -425,8 +425,21 @@ async function tick() {
   if (tab() === 'today' || tab() === 'week') render();
 }
 
+// Просим браузер не чистить хранилище. В Chrome согласие даётся без диалога,
+// обычно после установки приложения на главный экран.
+async function persistStorage() {
+  const el = $('#storage-msg');
+  if (!navigator.storage?.persist) return setMsg(el, 'Браузер не умеет защищать хранилище — делай экспорт почаще.');
+  const ok = (await navigator.storage.persisted()) || (await navigator.storage.persist());
+  setMsg(el, ok
+    ? 'Хранилище защищено: браузер не удалит данные сам.'
+    : 'Браузер пока может очистить данные при нехватке места. Установи приложение на главный экран и делай экспорт.');
+}
+
 async function init() {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch((e) => console.error('SW', e));
   await reload();
+  persistStorage().catch(() => {});
   setupQuickAdd();
   setupSettings();
   window.addEventListener('hashchange', render);
