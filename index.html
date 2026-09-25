@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; connect-src 'self' https://www.googleapis.com; frame-src https://accounts.google.com; style-src 'self' https://accounts.google.com/gsi/style; img-src 'self' data:">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1b1c1f" media="(prefers-color-scheme: dark)">
+  <title>Планер</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="src/app.js"></script>
+</head>
+<body>
+  <main id="main">
+    <section id="view-today" class="view" aria-labelledby="h-today">
+      <header class="top">
+        <h1 id="h-today">Сегодня</h1>
+        <p id="today-date" class="muted"></p>
+      </header>
+      <div id="wake-box"></div>
+      <div id="feed" class="feed" aria-live="polite"></div>
+      <div id="overflow"></div>
+      <form id="quick-add" class="card add" autocomplete="off">
+        <h2>Новая задача</h2>
+        <label class="field"><span>Название</span><input name="title" required maxlength="200" enterkeyhint="done"></label>
+        <div class="row">
+          <label class="field"><span>Минут</span><input name="estimateMin" type="number" inputmode="numeric" min="1" max="1440" value="30" required></label>
+          <label class="field"><span>Приоритет</span>
+            <select name="priority"><option value="1">1 — важно</option><option value="2" selected>2 — обычно</option><option value="3">3 — можно потом</option></select>
+          </label>
+        </div>
+        <details>
+          <summary>Ещё: дедлайн, категория, дробление</summary>
+          <label class="field"><span>Дедлайн</span><input name="deadline" type="date"></label>
+          <label class="field"><span>Категория</span><input name="category" maxlength="50" list="categories"></label>
+          <label class="check"><input name="splittable" type="checkbox"> Можно делить на куски от 25 минут</label>
+        </details>
+        <p id="add-msg" class="msg" role="status"></p>
+        <button class="btn primary" type="submit">Добавить</button>
+      </form>
+      <datalist id="categories"></datalist>
+    </section>
+
+    <section id="view-week" class="view" aria-labelledby="h-week" hidden>
+      <header class="top"><h1 id="h-week">Неделя</h1><p class="muted">Прогноз: что влезет в какой день</p></header>
+      <div id="week"></div>
+    </section>
+
+    <section id="view-tasks" class="view" aria-labelledby="h-tasks" hidden>
+      <header class="top"><h1 id="h-tasks">Задачи</h1><p class="muted">Все задачи в порядке укладки</p></header>
+      <div id="tasks"></div>
+    </section>
+
+    <section id="view-settings" class="view" aria-labelledby="h-settings" hidden>
+      <header class="top"><h1 id="h-settings">Настройки</h1></header>
+      <form id="settings-form" class="card">
+        <h2>День</h2>
+        <div class="row">
+          <label class="field"><span>Подъём</span><input name="defaultWake" type="time" required></label>
+          <label class="field"><span>Сон</span><input name="sleepAt" type="time" required></label>
+        </div>
+        <label class="field"><span>Буфер вокруг пар, минут</span><input name="bufferMin" type="number" inputmode="numeric" min="0" max="120" required></label>
+        <p class="muted small">Сон раньше подъёма — это после полуночи, но не позже 04:00.</p>
+        <p id="settings-msg" class="msg" role="status"></p>
+        <button class="btn primary" type="submit">Сохранить</button>
+      </form>
+      <div id="calendar-box" class="card"></div>
+      <div class="card">
+        <h2>Резервная копия</h2>
+        <p class="muted small">Данные хранятся только на этом телефоне. Делай копию время от времени.</p>
+        <button id="export" class="btn" type="button">Экспорт в файл</button>
+        <label class="btn file">Импорт из файла<input id="import" type="file" accept="application/json,.json"></label>
+        <p id="backup-msg" class="msg" role="status"></p>
+      </div>
+      <p id="storage-msg" class="muted small"></p>
+    </section>
+  </main>
+
+  <nav class="tabs" aria-label="Экраны">
+    <a href="#today" data-tab="today">Сегодня</a>
+    <a href="#week" data-tab="week">Неделя</a>
+    <a href="#tasks" data-tab="tasks">Задачи</a>
+    <a href="#settings" data-tab="settings">Настройки</a>
+  </nav>
+</body>
+</html>
