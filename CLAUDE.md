@@ -41,12 +41,13 @@
 
 - Тесты: `npm test` (Node 22+, зависимостей нет).
 - Локальный просмотр: `python3 -m http.server 8000` из корня.
-- Перед «готово»: `semgrep --metrics=off --config auto .` и `gitleaks dir .`, если они установлены. Если нет — сказать об этом, а не молчать.
+- Перед «готово»: `semgrep --metrics=off --config p/javascript --config p/xss --config p/secrets --config p/owasp-top-ten --config p/security-audit --exclude test .` (`--config auto` с `--metrics=off` не работает), `gitleaks dir .` и `gitleaks git .`. Если сканеров нет — сказать об этом, а не молчать.
 
 ## Безопасность (всегда)
 
 - Данные пользователя и календаря выводятся только через `textContent` и `createElement`. Никакого `innerHTML`, `eval`, `new Function` и inline-обработчиков.
-- CSP в `<meta>`: `default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; connect-src 'self' https://www.googleapis.com https://oauth2.googleapis.com; frame-src https://accounts.google.com; style-src 'self' https://accounts.google.com/gsi/style; img-src 'self' data:`. Если GIS потребует больше, добавить минимум и объяснить почему.
+- CSP в `<meta>`: `default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; connect-src 'self' https://www.googleapis.com https://oauth2.googleapis.com; frame-src https://accounts.google.com; style-src 'self' https://accounts.google.com/gsi/style; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'`. Если GIS потребует больше, добавить минимум и объяснить почему.
+  - `object-src`, `base-uri`, `form-action` не наследуются от `default-src` (кроме первого) — заданы явно. `form-action 'none'` не даёт формам уйти GET-запросом с названием задачи в URL, если JS не загрузился.
   - `https://oauth2.googleapis.com` добавлен ради `google.accounts.oauth2.revoke` (кнопка «Выйти»): GIS шлёт туда XHR. Телеметрия GIS на `accounts.google.com/gsi/log` намеренно заблокирована: даёт шум в консоли, на вход не влияет.
 - Импорт JSON проверяется по схеме (типы, длины, диапазоны), лишние поля отбрасываются. Битый файл не должен ломать хранилище.
 - Токен OAuth не пишется ни в IndexedDB, ни в localStorage, ни в лог.
