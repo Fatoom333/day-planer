@@ -2,9 +2,10 @@
 
 import { h, $ } from './dom.js';
 import * as store from './store.js';
-import { cleanTask, ValidationError, LIMITS, MAX_IMPORT_BYTES } from './schema.js';
+import { cleanTask, cleanSettings, ValidationError, LIMITS, MAX_IMPORT_BYTES } from './schema.js';
 import { moveTask, forecast, orderTasks } from './plan.js';
 import { planToday, planWeek } from './schedule.js';
+import * as cal from './calendar.js';
 import { dayKey, addDays, endOfWeek, fmt, fmtDur, fmtDate, parseHM, sleepMin, sleepValid } from './time.js';
 
 const S = {
@@ -14,6 +15,7 @@ const S = {
   day: null,     // DayState текущего логического дня
   fixed: [],     // пары сегодня из кэша
   fixedByDate: {}, // пары на 7 дней из кэша
+  fixedInfo: null, // запись кэша пар на сегодня: {fetchedAt} или null, если не загружали
   date: null,
   plan: null,
   dragging: false,
@@ -28,7 +30,7 @@ async function reload() {
     store.loadSettings(), store.getAll('tasks'), store.getAll('history'), store.getDay(S.date), ...dates.map(store.getEvents),
   ]);
   const fixedByDate = Object.fromEntries(dates.map((d, i) => [d, evs[i]?.events ?? []]));
-  Object.assign(S, { settings, tasks, history, day, fixedByDate, fixed: fixedByDate[S.date] });
+  Object.assign(S, { settings, tasks, history, day, fixedByDate, fixed: fixedByDate[S.date], fixedInfo: evs[0] ?? null });
 }
 
 // Любое действие: записать, перечитать из базы, перерисовать. Ошибку показать, а не проглотить.
@@ -108,6 +110,10 @@ function renderToday() {
     wakeBox.append(h('div', { class: 'sorted-note' },
       h('span', { class: 'muted' }, 'Порядок изменён вручную'),
       h('button', { class: 'btn', type: 'button', onclick: resetOrder }, 'Отсортировать')));
+  }
+
+  if (cal.isConfigured() && !S.fixedInfo) {
+    wakeBox.append(h('p', { class: 'muted small' }, 'Пары на сегодня не загружены: Настройки → Календарь.'));
   }
 
   const running = doing();
@@ -308,11 +314,74 @@ function renderTasks() {
 // ── Настройки ─────────────────────────────────────────────────────────────
 
 function renderSettings() {
+  renderCalendar();
   const f = $('#settings-form');
   f.elements.defaultWake.value = fmt(S.settings.defaultWake);
   f.elements.sleepAt.value = fmt(S.settings.sleepAt);
   f.elements.bufferMin.value = String(S.settings.bufferMin);
   f.elements.gapMin.value = String(S.settings.gapMin);
+}
+
+// ── Календарь ─────────────────────────────────────────────────────────────
+
+function renderCalendar() {
+  const box = $('#calendar-box');
+  if (!cal.isConfigured()) {
+    box.replaceChildren(h('h2', {}, 'Календарь'),
+      h('p', { class: 'muted small' }, 'Вход в Google ещё не настроен: в src/config.js нет Client ID. Инструкция — docs/google-setup.md.'));
+    return;
+  }
+  cal.loadGis().catch(() => {}); // заранее, чтобы окно входа открылось сразу по нажатию
+  const msg = h('p', { class: 'msg', role: 'status' });
+  const ids = h('input', { name: 'calendarIds', maxlength: 2000, value: S.settings.calendarIds.join(', '), autocomplete: 'off', spellcheck: 'false' });
+  const status = S.fixedInfo
+    ? `Пары обновлены ${fmtDate(dayKey(new Date(S.fixedInfo.fetchedAt)))} в ${fmt(new Date(S.fixedInfo.fetchedAt).getHours() * 60 + new Date(S.fixedInfo.fetchedAt).getMinutes())}.`
+    : 'Пары ещё не загружались.';
+  const load = h('button', { class: 'btn primary', type: 'button', onclick: () => loadPairs(ids, msg, load) }, 'Загрузить пары на неделю');
+  box.replaceChildren(
+    h('h2', {}, 'Календарь'),
+    h('label', { class: 'field' }, h('span', {}, 'Календари через запятую'), ids),
+    h('p', { class: 'muted small' }, 'primary — основной календарь. ID другого: Google Календарь → Настройки → нужный календарь → «Идентификатор календаря».'),
+    h('p', { class: 'muted small' }, status),
+    msg,
+    h('div', { class: 'btns' }, load,
+      cal.signedIn() || S.fixedInfo ? h('button', { class: 'btn', type: 'button', onclick: signOutCalendar }, 'Выйти') : null),
+  );
+}
+
+// Токен запрашивается прямо из нажатия: окно входа Google открывается только по жесту.
+async function loadPairs(input, msg, btn) {
+  const calendarIds = [...new Set(input.value.split(',').map((x) => x.trim()).filter(Boolean))];
+  let next;
+  try {
+    if (!calendarIds.length) throw new ValidationError('укажи хотя бы один календарь, например primary');
+    next = cleanSettings({ ...S.settings, calendarIds });
+  } catch (e) {
+    return setMsg(msg, e instanceof ValidationError ? `Проверь календари: ${e.message}` : 'Ошибка', true);
+  }
+  btn.disabled = true;
+  setMsg(msg, 'Загружаю…');
+  try {
+    const week = await cal.fetchWeek(S.date, next.calendarIds);
+    await store.saveSettings(next);
+    await store.saveEventsMany(week);
+    const n = Object.values(week).reduce((a, l) => a + l.length, 0);
+    await reload();
+    render();
+    setMsg($('#calendar-box .msg'), `Загружено пар на неделю: ${n}`);
+  } catch (e) {
+    btn.disabled = false;
+    setMsg(msg, e instanceof cal.CalendarError ? e.message : 'Не удалось загрузить пары. Проверь сеть.', true);
+    if (!(e instanceof cal.CalendarError)) console.error('calendar', e.name); // без деталей: в них может быть URL запроса
+  }
+}
+
+async function signOutCalendar() {
+  if (!confirm('Выйти из Google и удалить сохранённые пары с телефона?')) return;
+  cal.signOut();
+  await store.clearEvents();
+  await reload();
+  render();
 }
 
 function setupSettings() {

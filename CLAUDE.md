@@ -34,7 +34,8 @@
 - `src/dom.js` — `h()`, единственный способ строить DOM. `src/app.js` — UI четырёх экранов.
 - `index.html`, `style.css`, `manifest.webmanifest`, `icons/`, `sw.js` (cache-first, **при изменении файлов поднимать `VERSION`**; `test/sw.test.js` проверяет, что все файлы в `FILES`).
 - `docs/deploy.md` — выкладка на Pages и установка на телефон.
-- Дальше по плану: `src/calendar.js` (GIS), `src/config.js`, `docs/google-setup.md`.
+- `src/calendar.js` — GIS token flow (токен только в переменной модуля), загрузка недели пар, `groupByDay` (чистая, `test/calendar.test.js`). `src/config.js` — Client ID (сейчас заглушка).
+- `docs/google-setup.md` — настройка Google Cloud для человека без опыта.
 
 ## Команды
 
@@ -45,7 +46,8 @@
 ## Безопасность (всегда)
 
 - Данные пользователя и календаря выводятся только через `textContent` и `createElement`. Никакого `innerHTML`, `eval`, `new Function` и inline-обработчиков.
-- CSP в `<meta>`: `default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; connect-src 'self' https://www.googleapis.com; frame-src https://accounts.google.com; style-src 'self' https://accounts.google.com/gsi/style; img-src 'self' data:`. Если GIS потребует больше, добавить минимум и объяснить почему.
+- CSP в `<meta>`: `default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; connect-src 'self' https://www.googleapis.com https://oauth2.googleapis.com; frame-src https://accounts.google.com; style-src 'self' https://accounts.google.com/gsi/style; img-src 'self' data:`. Если GIS потребует больше, добавить минимум и объяснить почему.
+  - `https://oauth2.googleapis.com` добавлен ради `google.accounts.oauth2.revoke` (кнопка «Выйти»): GIS шлёт туда XHR. Телеметрия GIS на `accounts.google.com/gsi/log` намеренно заблокирована: даёт шум в консоли, на вход не влияет.
 - Импорт JSON проверяется по схеме (типы, длины, диапазоны), лишние поля отбрасываются. Битый файл не должен ломать хранилище.
 - Токен OAuth не пишется ни в IndexedDB, ни в localStorage, ни в лог.
 - Новые зависимости — только с согласия пользователя.
