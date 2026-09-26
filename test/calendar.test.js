@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { groupByDay, isConfigured } from '../src/calendar.js';
+import { groupByDay, isConfigured, cleanCalendarList } from '../src/calendar.js';
 
 const iso = (y, mo, d, h, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
 const ev = (s, e, o = {}) => ({ summary: 'Матан', start: { dateTime: s }, end: { dateTime: e }, ...o });
@@ -56,4 +56,27 @@ test('не больше 50 пар в день и не массив на вход
 test('одно и то же событие из двух календарей — одна пара', () => {
   const e = ev(iso(2026, 9, 26, 9), iso(2026, 9, 26, 10));
   assert.equal(groupByDay([e, { ...e }], '2026-09-26')['2026-09-26'].length, 1);
+});
+
+test('список календарей: основной первым как primary, мусор отброшен', () => {
+  const r = cleanCalendarList([
+    { id: 'uni@group.calendar.google.com', summary: 'Расписание', summaryOverride: 'Пары' },
+    { id: 'me@gmail.com', summary: 'me@gmail.com', primary: true },
+    { id: 'x@group.calendar.google.com', summary: '   ' },
+    { id: '', summary: 'пустой' }, { id: 5 }, null, 'str',
+    { id: 'y'.repeat(300), summary: 'длинный id' },
+    { id: 'z@g', summary: { html: '<b>' } },
+    { id: 'uni@group.calendar.google.com', summary: 'дубль' },
+  ]);
+  assert.deepEqual(r.map((c) => [c.id, c.name]), [
+    ['primary', 'me@gmail.com'],
+    ['uni@group.calendar.google.com', 'Пары'],
+    ['x@group.calendar.google.com', 'x@group.calendar.google.com'],
+    ['z@g', 'z@g'],
+  ]);
+});
+
+test('список календарей: не массив и лимит 100', () => {
+  assert.deepEqual(cleanCalendarList({ items: [] }), []);
+  assert.equal(cleanCalendarList(Array.from({ length: 150 }, (_, i) => ({ id: `c${i}`, summary: `c${i}` }))).length, 100);
 });
