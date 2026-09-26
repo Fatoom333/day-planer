@@ -5,8 +5,8 @@ import { groupByDay, isConfigured } from '../src/calendar.js';
 const iso = (y, mo, d, h, mi = 0) => new Date(y, mo - 1, d, h, mi).toISOString();
 const ev = (s, e, o = {}) => ({ summary: 'Матан', start: { dateTime: s }, end: { dateTime: e }, ...o });
 
-test('заглушка Client ID не считается настройкой', () => {
-  assert.equal(isConfigured(), false);
+test('Client ID в config.js имеет формат Web-клиента Google', () => {
+  assert.equal(isConfigured(), true);
 });
 
 test('события раскладываются по логическим дням в минутах', () => {
