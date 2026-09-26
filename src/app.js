@@ -19,6 +19,8 @@ const S = {
   date: null,
   plan: null,
   dragging: false,
+  calList: null,  // календари из Google, пока открыт выбор; только в памяти
+  calNames: null, // те же названия для подписи, до выхода или перезапуска
 };
 
 // ── загрузка ────────────────────────────────────────────────────────────────
@@ -333,28 +335,75 @@ function renderCalendar() {
   }
   cal.loadGis().catch(() => {}); // заранее, чтобы окно входа открылось сразу по нажатию
   const msg = h('p', { class: 'msg', role: 'status' });
-  const ids = h('input', { name: 'calendarIds', maxlength: 2000, value: S.settings.calendarIds.join(', '), autocomplete: 'off', spellcheck: 'false' });
-  const status = S.fixedInfo
-    ? `Пары обновлены ${fmtDate(dayKey(new Date(S.fixedInfo.fetchedAt)))} в ${fmt(new Date(S.fixedInfo.fetchedAt).getHours() * 60 + new Date(S.fixedInfo.fetchedAt).getMinutes())}.`
+  const ids = S.settings.calendarIds;
+  const names = new Map((S.calNames ?? []).map((c) => [c.id, c.name]));
+  const fetched = S.fixedInfo && new Date(S.fixedInfo.fetchedAt);
+  const status = fetched
+    ? `Пары обновлены ${fmtDate(dayKey(fetched))} в ${fmt(fetched.getHours() * 60 + fetched.getMinutes())}.`
     : 'Пары ещё не загружались.';
+
   const load = h('button', { class: 'btn primary', type: 'button', onclick: () => loadPairs(ids, msg, load) }, 'Загрузить пары на неделю');
+  const pick = h('button', { class: 'btn', type: 'button', onclick: () => pickCalendars(msg, pick) }, 'Выбрать календари');
+
+  const manual = h('input', { name: 'calendarIds', maxlength: 2000, value: ids.join(', '), autocomplete: 'off', spellcheck: 'false' });
+  const manualBtn = h('button', { class: 'btn', type: 'button', onclick: () => loadPairs(splitIds(manual.value), msg, manualBtn) }, 'Сохранить и загрузить');
+
   box.replaceChildren(
     h('h2', {}, 'Календарь'),
-    h('label', { class: 'field' }, h('span', {}, 'Календари через запятую'), ids),
-    h('p', { class: 'muted small' }, 'primary — основной календарь. ID другого: Google Календарь → Настройки → нужный календарь → «Идентификатор календаря».'),
+    h('p', { class: 'small' }, 'Календари: ', ids.map((id) => names.get(id) ?? (id === 'primary' ? 'основной' : id)).join(', ')),
     h('p', { class: 'muted small' }, status),
+    S.calList ? calendarPicker(msg) : null,
     msg,
-    h('div', { class: 'btns' }, load,
-      cal.signedIn() || S.fixedInfo ? h('button', { class: 'btn', type: 'button', onclick: signOutCalendar }, 'Выйти') : null),
+    h('div', { class: 'btns' }, load, S.calList ? null : pick),
+    h('details', {},
+      h('summary', {}, 'Ввести ID вручную'),
+      h('label', { class: 'field' }, h('span', {}, 'ID через запятую'), manual),
+      h('p', { class: 'muted small' }, 'primary — основной календарь. ID другого: Google Календарь на компьютере → Настройки → нужный календарь → «Интеграция календаря» → «Идентификатор календаря».'),
+      h('div', { class: 'btns' }, manualBtn)),
+    cal.signedIn() || S.fixedInfo
+      ? h('div', { class: 'btns' }, h('button', { class: 'btn', type: 'button', onclick: signOutCalendar }, 'Выйти'))
+      : null,
   );
 }
 
-// Токен запрашивается прямо из нажатия: окно входа Google открывается только по жесту.
-async function loadPairs(input, msg, btn) {
-  const calendarIds = [...new Set(input.value.split(',').map((x) => x.trim()).filter(Boolean))];
+const splitIds = (text) => [...new Set(text.split(',').map((x) => x.trim()).filter(Boolean))];
+
+// Список с галочками. Названия календарей живут только в памяти (S.calList), в хранилище идут одни ID.
+function calendarPicker(msg) {
+  const chosen = new Set(S.settings.calendarIds);
+  const boxes = S.calList.map((c) => h('input', { type: 'checkbox', checked: chosen.has(c.id), dataset: { id: c.id } }));
+  const save = h('button', { class: 'btn primary', type: 'button', onclick: () => {
+    const picked = boxes.filter((b) => b.checked).map((b) => b.dataset.id);
+    loadPairs(picked, msg, save);
+  } }, 'Сохранить и загрузить пары');
+  return h('fieldset', { class: 'cal-list' },
+    h('legend', { class: 'muted small' }, 'Отметь календари с парами'),
+    S.calList.map((c, i) => h('label', { class: 'check' }, boxes[i], c.name, c.primary ? ' (основной)' : '')),
+    h('div', { class: 'btns' }, save,
+      h('button', { class: 'btn', type: 'button', onclick: () => { S.calList = null; renderCalendar(); } }, 'Отмена')));
+}
+
+// Окно входа Google открывается только по жесту — токен запрашивается прямо из нажатия.
+async function pickCalendars(msg, btn) {
+  btn.disabled = true;
+  setMsg(msg, 'Загружаю список…');
+  try {
+    S.calList = await cal.fetchCalendarList();
+    if (!S.calList.length) throw new cal.CalendarError('В аккаунте не видно ни одного календаря.');
+    S.calNames = S.calList;
+    renderCalendar();
+  } catch (e) {
+    S.calList = null;
+    btn.disabled = false;
+    setMsg(msg, e instanceof cal.CalendarError ? e.message : 'Не удалось получить список. Проверь сеть.', true);
+    if (!(e instanceof cal.CalendarError)) console.error('calendar', e.name);
+  }
+}
+
+async function loadPairs(calendarIds, msg, btn) {
   let next;
   try {
-    if (!calendarIds.length) throw new ValidationError('укажи хотя бы один календарь, например primary');
+    if (!calendarIds.length) throw new ValidationError('выбери хотя бы один календарь');
     next = cleanSettings({ ...S.settings, calendarIds });
   } catch (e) {
     return setMsg(msg, e instanceof ValidationError ? `Проверь календари: ${e.message}` : 'Ошибка', true);
@@ -366,6 +415,7 @@ async function loadPairs(input, msg, btn) {
     await store.saveSettings(next);
     await store.saveEventsMany(week);
     const n = Object.values(week).reduce((a, l) => a + l.length, 0);
+    S.calList = null;
     await reload();
     render();
     setMsg($('#calendar-box .msg'), `Загружено пар на неделю: ${n}`);
@@ -379,6 +429,7 @@ async function loadPairs(input, msg, btn) {
 async function signOutCalendar() {
   if (!confirm('Выйти из Google и удалить сохранённые пары с телефона?')) return;
   cal.signOut();
+  S.calList = S.calNames = null;
   await store.clearEvents();
   await reload();
   render();

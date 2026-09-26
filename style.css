@@ -141,6 +141,8 @@ summary { min-height: var(--tap); display: flex; align-items: center; color: var
 .empty { color: var(--muted); text-align: center; padding: 24px 8px; }
 .wake { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .wake .muted { margin: 0; }
+.cal-list { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin: 0 0 12px; }
+.cal-list .check { overflow-wrap: anywhere; }
 .sorted-note { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 
 .overflow { background: var(--warn-soft); border-color: transparent; }
