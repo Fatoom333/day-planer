@@ -34,7 +34,7 @@
 - `src/dom.js` — `h()`, единственный способ строить DOM. `src/app.js` — UI четырёх экранов.
 - `index.html`, `style.css`, `manifest.webmanifest`, `icons/`, `sw.js` (cache-first, **при изменении файлов поднимать `VERSION`**; `test/sw.test.js` проверяет, что все файлы в `FILES`).
 - `docs/deploy.md` — выкладка на Pages и установка на телефон.
-- `src/calendar.js` — GIS token flow (токен только в переменной модуля), загрузка недели пар, `groupByDay` (чистая, `test/calendar.test.js`). `src/config.js` — Client ID (сейчас заглушка).
+- `src/calendar.js` — GIS token flow (токен только в переменной модуля), загрузка недели пар, `groupByDay` (чистая, `test/calendar.test.js`). `src/config.js` — Client ID (Web-клиент, origin `https://fatoom333.github.io`).
 - `docs/google-setup.md` — настройка Google Cloud для человека без опыта.
 
 ## Команды
