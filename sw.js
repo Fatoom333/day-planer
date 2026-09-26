@@ -1,7 +1,7 @@
 // Офлайн-кэш своих файлов. Чужие запросы (Google) не трогаем: они идут в сеть как есть.
 // При любом изменении файлов из FILES поднимай VERSION, иначе телефон останется на старом кэше.
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `day-planer-${VERSION}`;
 const FILES = [
   './',
@@ -12,6 +12,8 @@ const FILES = [
   'icons/icon-512.png',
   'icons/maskable-512.png',
   'src/app.js',
+  'src/calendar.js',
+  'src/config.js',
   'src/dom.js',
   'src/plan.js',
   'src/schedule.js',

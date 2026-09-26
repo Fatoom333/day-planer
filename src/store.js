@@ -80,6 +80,16 @@ export const saveEvents = (date, events) =>
   tx(['events'], 'readwrite', (s) => wrap(s.put({ date, events, fetchedAt: Date.now() })));
 export const getEvents = (date) => get('events', date);
 
+// Неделя пар одной транзакцией; пустой массив тоже пишется: «пар нет» ≠ «не загружено».
+export function saveEventsMany(byDate) {
+  const fetchedAt = Date.now();
+  return tx(['events'], 'readwrite', (s) => {
+    for (const [date, events] of Object.entries(byDate)) s.put({ date, events, fetchedAt });
+  });
+}
+
+export const clearEvents = () => tx(['events'], 'readwrite', (s) => wrap(s.clear()));
+
 export async function exportBackup() {
   const [tasks, history, days, settings] = await Promise.all([
     getAll('tasks'), getAll('history'), getAll('days'), loadSettings(),
